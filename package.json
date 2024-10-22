@@ -1,15 +1,17 @@
 {
-  "name": "htx-jnnrgd",
+  "name": "exchange-connectors",
   "version": "1.0.0",
   "description": "",
   "main": "index.ts",
   "scripts": {
+    "build": "tsc ./src",
     "test": "jest"
   },
-  "author": "jnnrgd",
+  "author": "",
   "license": "ISC",
   "dependencies": {
     "axios": "1.7.7",
+    "crypto": "^1.0.1",
     "uuid": "10.0.0",
     "winston": "3.15.0",
     "ws": "8.18.0"

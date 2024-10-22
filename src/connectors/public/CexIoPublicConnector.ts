@@ -1,85 +1,112 @@
 import {
-    PublicExchangeConnector,
-    ConnectorConfiguration,
-    ConnectorGroup,
-    Serializable,
+  BalanceRequest,
+  BalanceResponse,
+  BatchOrdersRequest,
+  CancelOrdersRequest,
+  ConnectorConfiguration,
+  ConnectorGroup,
+  Credential,
+  OpenOrdersRequest,
+  OrderState,
+  OrderStatusUpdate,
+  PrivateExchangeConnector,
+  PublicExchangeConnector,
+  Serializable,
+  SklEvent,
+  Side,
 } from 'skl-shared';
+import { WebSocket } from 'ws';
 
-export class ExchangeNamePublicConnector implements PublicExchangeConnector {
-    private exchangeSymbol: string;
-    private sklSymbol: string;
-    private websocket: WebSocket;
-    private publicWebsocketUrl: string = 'wss://stream.binance.com:9443/ws';
+import { Logger } from '../../utils';
 
-    constructor(
-        private group: ConnectorGroup,
-        private config: ConnectorConfiguration
-    ) {
-        this.exchangeSymbol = this.getExchangeSymbol(group, config);
-        this.sklSymbol = this.getSklSymbol(group, config);
-    }
+const logger = Logger.getInstance('cex-spot-public-connector');
 
-    private getExchangeSymbol(group: ConnectorGroup, config: ConnectorConfiguration): string {
-        return 'mappedExchangeSymbol'; // Update with actual logic
-    }
+export class CexIoPublicConnector implements PublicExchangeConnector {
+  private exchangeSymbol: string;
+  private sklSymbol: string;
+  private websocket: WebSocket;
+  private publicWebsocketUrl: string = 'wss://stream.binance.com:9443/ws';
 
-    private getSklSymbol(group: ConnectorGroup, config: ConnectorConfiguration): string {
-        return 'mappedSklSymbol'; // Update with actual logic
-    }
+  constructor(
+    private group: ConnectorGroup,
+    private config: ConnectorConfiguration,
+    private credential?: Credential
+  ) {
+    this.exchangeSymbol = this.getExchangeSymbol(group, config);
+    this.sklSymbol = this.getSklSymbol(group, config);
+  }
 
-    public async connect(onMessage: (messages: Serializable[]) => void): Promise<void> {
-        this.websocket = new WebSocket(this.publicWebsocketUrl);
+  private getExchangeSymbol(
+    group: ConnectorGroup,
+    config: ConnectorConfiguration
+  ): string {
+    return 'mappedExchangeSymbol'; // Update with actual logic
+  }
 
-        this.websocket.on('open', () => {
-            console.log('WebSocket connection opened');
-            this.subscribeToChannels();
-        });
+  private getSklSymbol(
+    group: ConnectorGroup,
+    config: ConnectorConfiguration
+  ): string {
+    return 'mappedSklSymbol'; // Update with actual logic
+  }
 
-        this.websocket.on('message', (data: string) => {
-            this.handleMessage(data, onMessage);
-        });
+  public async connect(
+    onMessage: (messages: Serializable[]) => void
+  ): Promise<void> {
+    this.websocket = new WebSocket(this.publicWebsocketUrl);
 
-        this.websocket.on('error', (error: Error) => {
-            console.error('WebSocket error:', error);
-        });
+    this.websocket.on('open', () => {
+      console.log('WebSocket connection opened');
+      this.subscribeToChannels();
+    });
 
-        this.websocket.on('close', () => {
-            console.log('WebSocket connection closed');
-        });
-    }
+    this.websocket.on('message', (data: string) => {
+      this.handleMessage(data, onMessage);
+    });
 
-    private subscribeToChannels(): void {
-        const channels = [
-            `trades.${this.exchangeSymbol}`,
-            `orderbook.${this.exchangeSymbol}`,
-            `ticker.${this.exchangeSymbol}`,
-        ];
+    this.websocket.on('error', (error: Error) => {
+      console.error('WebSocket error:', error);
+    });
 
-        const subscriptionMessage = {
-            method: 'SUBSCRIBE',
-            params: channels,
-        };
+    this.websocket.on('close', () => {
+      console.log('WebSocket connection closed');
+    });
+  }
 
-        this.websocket.send(JSON.stringify(subscriptionMessage));
-        console.log('Subscribed to channels:', channels);
-    }
+  private subscribeToChannels(): void {
+    const channels = [
+      `trades.${this.exchangeSymbol}`,
+      `orderbook.${this.exchangeSymbol}`,
+      `ticker.${this.exchangeSymbol}`,
+    ];
 
-    private handleMessage(data: string, onMessage: (messages: Serializable[]) => void): void {
-        const message = JSON.parse(data);
-        console.log('Received message:', message);
-    }
+    const subscriptionMessage = {
+      method: 'SUBSCRIBE',
+      params: channels,
+    };
 
-    public async stop(): Promise<void> {
-        const unsubscribeMessage = {
-            method: 'UNSUBSCRIBE',
-            params: [
-                `trades.${this.exchangeSymbol}`,
-                `orderbook.${this.exchangeSymbol}`,
-                `ticker.${this.exchangeSymbol}`,
-            ],
-        };
-        this.websocket.send(JSON.stringify(unsubscribeMessage));
-        this.websocket.close();
-    }
+    this.websocket.send(JSON.stringify(subscriptionMessage));
+    console.log('Subscribed to channels:', channels);
+  }
+
+  private handleMessage(
+    data: string,
+    onMessage: (messages: Serializable[]) => void
+  ): void {
+    const message = JSON.parse(data);
+    console.log('Received message:', message);
+  }
+
+  public async stop(): Promise<void> {
+    const unsubscribeMessage = {
+      method: 'UNSUBSCRIBE',
+      params: [
+        `trades.${this.exchangeSymbol}`,
+        `orderbook.${this.exchangeSymbol}`,
+        `ticker.${this.exchangeSymbol}`,
+      ],
+    };
+    this.websocket.send(JSON.stringify(unsubscribeMessage));
+    this.websocket.close();
+  }
 }
-

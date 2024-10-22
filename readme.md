@@ -39,14 +39,14 @@
 
 ### Utility Functions and Mappings
 
-Symbol Mapping: getExchangeSymbol, getSklSymbol
-Side Mapping: sideMap, invertedSideMap, MexcSideMap, MexcInvertedSideMap
-Order Type Mapping: orderTypeMap, MexcOrderTypeMap
+- **Symbol Mapping:** getExchangeSymbol, getSklSymbol <br/>
+- **Side Mapping:** sideMap, invertedSideMap, MexcSideMap, MexcInvertedSideMap <br/>
+- **Order Type Mapping:** orderTypeMap, MexcOrderTypeMap <br/>
 
 ### Common Serializable Types
 
-Trade
-TopOfBook
-Ticker
-OrderStatusUpdate
-BalanceResponse
+- Trade \
+- TopOfBook \
+- Ticker \
+- OrderStatusUpdate \
+- BalanceResponse

@@ -1,8 +1,12 @@
-import { HtxPublicConnector } from './public/HtxPublicConnector';
-import { HtxPrivateConnector } from './private/HtxPrivateConnector';
-import { ConnectorGroup, Credential, ConnectorConfiguration } from './types';
-import { PublicExchangeConnector } from './public/types';
-import { PrivateExchangeConnector } from './private/types';
+import {
+  PublicExchangeConnector,
+  PrivateExchangeConnector,
+  ConnectorGroup,
+  ConnectorConfiguration,
+  Credential,
+} from 'skl-shared';
+
+import { CexIoPrivateConnector, CexIoPublicConnector } from './connectors';
 
 export class ConnectorFactory {
   public static getPublicConnector(
@@ -11,8 +15,8 @@ export class ConnectorFactory {
     credential?: Credential
   ): PublicExchangeConnector {
     switch (config.exchange) {
-      case 'htx':
-        return new HtxPublicConnector(group, config, credential);
+      case 'CexIo':
+        return new CexIoPublicConnector(group, config, credential);
       default:
         throw new Error(`Unknown exchange: ${config.exchange}`);
     }
@@ -24,8 +28,8 @@ export class ConnectorFactory {
     credential: Credential
   ): PrivateExchangeConnector {
     switch (config.exchange) {
-      case 'htx':
-        return new HtxPrivateConnector(group, config, credential);
+      case 'CexIo':
+        return new CexIoPrivateConnector(group, config, credential);
       default:
         throw new Error(`Unknown exchange: ${config.exchange}`);
     }

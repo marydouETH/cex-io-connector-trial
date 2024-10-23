@@ -12,7 +12,6 @@ import {
   OrderState,
   OrderStatusUpdate,
   PrivateExchangeConnector,
-  PublicExchangeConnector,
   Serializable,
   SklEvent,
   Side,
@@ -21,7 +20,13 @@ import { v4 as uuidv4 } from 'uuid';
 import WebSocket from 'ws';
 
 import { getCexIoSymbol, getSklSymbol, Logger } from '../../utils';
-import { WebsocketFeedError } from '../../errors';
+import { WebSocketConnectionError, WebsocketFeedError } from '../../errors';
+import {
+  CexSubAccountStatus,
+  CexAccountStatusResponse,
+  CexWalletBalanceResponse,
+  CexCancelOrdersResponse,
+} from '../../types';
 
 const logger = Logger.getInstance('cex-spot-private-connector');
 
@@ -109,14 +114,16 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
 
         self.privateWsFeed.on('error', (error: Error) => {
           logger.error('WebSocket error:', error);
+          reject(new WebSocketConnectionError(error.toString()));
         });
 
-        self.privateWsFeed.on('close', () => {
+        self.privateWsFeed.on('close', (code, reason: string) => {
+          self.handleClosed(code, reason, onMessage);
           logger.info('WebSocket connection closed');
         });
       });
     } catch (err) {
-      logger.error(`Error connecting to HTX: ${err}`);
+      logger.error(`Error connecting to CexIo: ${err}`);
     }
   }
 
@@ -244,6 +251,10 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
 
     // Handle Action Types
     const eventType = this.getEventType(message);
+    if (!eventType) {
+      logger.warn(`No handler for message: ${JSON.stringify(data)}`);
+      return;
+    }
 
     if (eventType === 'OrderStatusUpdate') {
       const orderStatusUpdate = this.createOrderStatusUpdate(
@@ -253,20 +264,28 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
       );
       onMessage([orderStatusUpdate]);
     } else {
-      // Handle other events or log unrecognized messages
+      // TODO: Handle other events or log unrecognized messages
     }
   }
 
+  // Reconnect when WS connection lost and cleanup old Intervals
   private handleClosed(
     code: number,
     reason: string,
     onMessage: (m: Serializable[]) => void
   ): void {
+    // Update auth status as logged out
+    this.wsAuthenciated = false;
+
+    this.stopPingInterval();
+
     if (code === 1000) {
       logger.info(`WebSocket closed normally`);
       return;
     }
     logger.error(`WebSocket closed with code ${code} and reason ${reason}`);
+
+    // Attempt to reconnect after 5s delay
     setTimeout(() => {
       this.connect(onMessage);
     }, 5000);
@@ -280,20 +299,20 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
     this.unSubscribeToChannels('trade_unsubscribe');
     this.unSubscribeToChannels('order_book_unsubscribe');
 
-    // TODO: Move this to cancel all orders
-    // Cancel all open orders
-    const oid = Date.now();
-    const message = {
-      e: 'do_cancel_all_orders',
-      oid: oid + 'do_cancel_all_orders',
-      data: {},
+    // CleanUp all opened orders
+    const request: CancelOrdersRequest = {
+      connectorType: 'CexIo',
+      event: 'CancelOrdersRequest',
+      symbol: this.exchangeSymbol,
+      timestamp: Date.now(),
     };
-    this.privateWsFeed.send(JSON.stringify(message));
+    this.deleteAllOrders(request);
 
     // Stop ping interval
     this.stopPingInterval();
   }
 
+  // Parse message and return proper event for order execution status
   private getEventType(message: any): SklEvent | null {
     const event = message;
 
@@ -302,6 +321,8 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
         return 'OrderStatusUpdate';
       }
     }
+
+    // TODO: add more event parsers
 
     return null;
   }
@@ -348,13 +369,11 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
    *  create main sub account if not initialized yet
    */
   private async initializeMainSubAccount(): Promise<boolean> {
-    const self = this;
-
     const action = 'do_create_account';
 
-    const res = await self.postRequest(action, {
-      accountId: self.mainSubAccountId,
-      currency: self.group.name,
+    const res = await this.postRequest(action, {
+      accountId: this.mainSubAccountId,
+      currency: this.group.name,
     });
 
     return !!res?.ok;
@@ -368,12 +387,11 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
   public async getSubAccountStatus(
     accountId?: string
   ): Promise<CexSubAccountStatus | undefined> {
-    const self = this;
-    if (!accountId) accountId = self.mainSubAccountId;
+    if (!accountId) accountId = this.mainSubAccountId;
 
     const action = 'get_my_account_status_v3';
 
-    const subAccountsData = await self.postRequest(action, {
+    const subAccountsData = await this.postRequest(action, {
       accountIds: [accountId],
     });
 
@@ -405,12 +423,12 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
       return orders.map((o) => {
         return <OrderStatusUpdate>{
           event: 'OrderStatusUpdate',
-          connectorType: 'Mexc',
+          connectorType: 'CexIo',
           symbol: this.sklSymbol,
           orderId: o.orderId,
           sklOrderId: o.clientOrderId,
-          state: MexcOpenOrdersStateMap[o.status],
-          side: MexcStringSideMap[o.side],
+          state: CexIoOpenOrdersStateMap[o.status],
+          side: CexIoStringSideMap[o.side],
           price: parseFloat(o.price),
           size: parseFloat(o.origQty),
           notional: parseFloat(o.price) * parseFloat(o.origQty),
@@ -427,17 +445,16 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
   public async getBalancePercentage(
     request: BalanceRequest
   ): Promise<BalanceResponse> {
-    const self = this;
     const params = {};
     const action = 'get_my_wallet_balance';
-    const walletBalancesRes: CexWalletBalanceResponse = await self.postRequest(
+    const walletBalancesRes: CexWalletBalanceResponse = await this.postRequest(
       action,
       params
     );
 
     // Find quote and base balances
-    const base = walletBalancesRes[self.group.name]?.balance ?? '0';
-    const quote = walletBalancesRes[self.config.quoteAsset]?.balance ?? '0';
+    const base = walletBalancesRes[this.group.name]?.balance ?? '0';
+    const quote = walletBalancesRes[this.config.quoteAsset]?.balance ?? '0';
 
     const baseValue = parseFloat(base) * request.lastPrice;
     const usdtValue = parseFloat(quote);
@@ -447,7 +464,7 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
 
     return {
       event: 'BalanceResponse',
-      symbol: self.sklSymbol,
+      symbol: this.sklSymbol,
       baseBalance: baseValue,
       quoteBalance: usdtValue,
       inventory: pairPercentage,
@@ -500,49 +517,31 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
     return Promise.all(responses);
   }
 
-  public async deleteAllOrders(request: CancelOrdersRequest): Promise<void> {
-    const self = this;
-    const payload: OpenOrdersRequest = {
-      symbol: self.sklSymbol,
-      event: 'OpenOrdersRequest',
-      timestamp: Date.now(),
-      connectorType: 'Coinbase',
-    };
+  // Cancel all open orders
+  public deleteAllOrders(request: CancelOrdersRequest): void {
+    if (!this.privateWsFeed) {
+      throw WebsocketFeedError;
+    }
 
-    const orders = await self.getCurrentActiveOrders(payload);
-    const orderIds = orders.map((order) => order.orderId);
-    const data = {
-      order_ids: orderIds,
-    };
-    await self.postRequest('/orders/batch_cancel', data);
-  }
+    const action = 'do_cancel_all_orders';
 
-  public async deleteOrder(request: CancelOrdersRequest): Promise<void> {
-    const self = this;
-    const payload: OpenOrdersRequest = {
-      symbol: self.sklSymbol,
-      event: 'OpenOrdersRequest',
-      timestamp: Date.now(),
-      connectorType: 'Coinbase',
+    const oid = Date.now();
+    const message = {
+      e: action,
+      oid: oid + action,
+      data: {},
     };
-
-    const orders = await self.getCurrentActiveOrders(payload);
-    const orderIds = orders.map((order) => order.orderId);
-    const data = {
-      order_ids: orderIds,
-    };
-    await self.postRequest('/orders/batch_cancel', data);
+    this.privateWsFeed.send(JSON.stringify(message));
   }
 
   public postRequest = async (
     action: string,
     paramsData: any
   ): Promise<any | null> => {
-    const self = this;
     const timestamp = Math.floor(Date.now() / 1000);
-    const url = self.privateRestEndpoint + action;
+    const url = this.privateRestEndpoint + action;
 
-    const signature = self.generateSignature(
+    const signature = this.generateSignature(
       timestamp,
       action,
       paramsData,
@@ -550,14 +549,14 @@ export class CexIoPrivateConnector implements PrivateExchangeConnector {
     );
 
     const headers = {
-      'X-AGGR-KEY': self.credential.key,
+      'X-AGGR-KEY': this.credential.key,
       'X-AGGR-TIMESTAMP': timestamp,
       'X-AGGR-SIGNATURE': signature,
       'Content-Type': 'application/json',
     };
 
     try {
-      return (await self.axios.post(url, paramsData, { headers })).data;
+      return (await this.axios.post(url, paramsData, { headers })).data;
     } catch (e) {
       logger.error(`POST Error: ${e}`);
       return null;

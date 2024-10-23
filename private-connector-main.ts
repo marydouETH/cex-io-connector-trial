@@ -1,13 +1,15 @@
-import { config } from './config';
-import { ConnectorFactory } from './ConnectorFactory';
-import { PrivateExchangeConnector } from './private/types';
 import {
   ConnectorGroup,
   Credential,
   ConnectorConfiguration,
+  PrivateExchangeConnector,
   Serializable,
-} from './types';
-import logger from './utils/logger';
+} from 'skl-shared';
+import { config } from './config';
+import { ConnectorFactory } from './src';
+import { Logger } from './src/utils';
+
+const logger = Logger.getInstance('global');
 
 const connectorGroup: ConnectorGroup = {
   name: 'btc',
@@ -15,10 +17,7 @@ const connectorGroup: ConnectorGroup = {
 
 const connectorConfig: ConnectorConfiguration = {
   quoteAsset: 'usdt',
-  exchange: 'htx',
-  wsAddress: config.WsAddress,
-  wsPath: config.WsPrivatePath,
-  restAddress: config.RestAddress,
+  connectorType: 'CexIo',
 };
 
 const creds: Credential = {

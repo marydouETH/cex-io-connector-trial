@@ -5,5 +5,5 @@ export function getSklSymbol(
   group: ConnectorGroup,
   config: ConnectorConfiguration
 ): string {
-  return `${config.exchange}-${group.name}-${config.quoteAsset}`;
+  return `${config.connectorType}-${group.name}-${config.quoteAsset}`;
 }

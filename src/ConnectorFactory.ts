@@ -14,11 +14,11 @@ export class ConnectorFactory {
     config: ConnectorConfiguration,
     credential?: Credential
   ): PublicExchangeConnector {
-    switch (config.exchange) {
+    switch (config.connectorType) {
       case 'CexIo':
         return new CexIoPublicConnector(group, config, credential);
       default:
-        throw new Error(`Unknown exchange: ${config.exchange}`);
+        throw new Error(`Unknown exchange: ${config.connectorType}`);
     }
   }
 
@@ -27,11 +27,11 @@ export class ConnectorFactory {
     config: ConnectorConfiguration,
     credential: Credential
   ): PrivateExchangeConnector {
-    switch (config.exchange) {
+    switch (config.connectorType) {
       case 'CexIo':
         return new CexIoPrivateConnector(group, config, credential);
       default:
-        throw new Error(`Unknown exchange: ${config.exchange}`);
+        throw new Error(`Unknown exchange: ${config.connectorType}`);
     }
   }
 }

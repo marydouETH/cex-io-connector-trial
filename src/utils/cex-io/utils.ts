@@ -1,11 +1,4 @@
-import {
-  ConnectorConfiguration,
-  ConnectorGroup,
-  Side,
-  SIGNATURE_VERSION,
-  SignatureMethod,
-  SklOrderType,
-} from 'skl-shared';
+import { ConnectorConfiguration, ConnectorGroup, Side } from 'skl-shared';
 
 export const getCexIoSymbol = (
   symbolGroup: ConnectorGroup,
@@ -16,11 +9,11 @@ export const getCexIoSymbol = (
 
 //////
 
-// export const getHtxOrderType = (
+// export const getCexIoOrderType = (
 //   sklType: SklOrderType,
 //   side: Side
-// ): HtxOrderType => {
-//   return htxOrderTypeMap[sklType][side];
+// ): CexIoOrderType => {
+//   return CexIoOrderTypeMap[sklType][side];
 // };
 
 // export const getDefaultQueryParams = (accessKey: string) => {
@@ -94,7 +87,7 @@ export const getCexIoSymbol = (
 // ): OrderStatusUpdate {
 //   return {
 //     symbol: order.symbol,
-//     connectorType: 'HTX',
+//     connectorType: 'CexIo',
 //     event: 'OrderStatusUpdate',
 //     state: order.state,
 //     orderId: order.id,
@@ -117,24 +110,24 @@ export const getCexIoSymbol = (
 //   return result;
 // }
 
-// export const htxOrderTypeMap: Record<
+// export const CexIoOrderTypeMap: Record<
 //   SklOrderType,
-//   Record<Side, HtxOrderType>
+//   Record<Side, CexIoOrderType>
 // > = {
 //   [SklOrderType.MARKET]: {
-//     [Side.BUY]: HtxOrderType.BUY_MARKET,
-//     [Side.SELL]: HtxOrderType.SELL_MARKET,
+//     [Side.BUY]: CexIoOrderType.BUY_MARKET,
+//     [Side.SELL]: CexIoOrderType.SELL_MARKET,
 //   },
 //   [SklOrderType.LIMIT]: {
-//     [Side.BUY]: HtxOrderType.BUY_LIMIT,
-//     [Side.SELL]: HtxOrderType.SELL_LIMIT,
+//     [Side.BUY]: CexIoOrderType.BUY_LIMIT,
+//     [Side.SELL]: CexIoOrderType.SELL_LIMIT,
 //   },
 //   [SklOrderType.LIMIT_MAKER]: {
-//     [Side.BUY]: HtxOrderType.BUY_LIMIT_MAKER,
-//     [Side.SELL]: HtxOrderType.SELL_LIMIT_MAKER,
+//     [Side.BUY]: CexIoOrderType.BUY_LIMIT_MAKER,
+//     [Side.SELL]: CexIoOrderType.SELL_LIMIT_MAKER,
 //   },
 //   [SklOrderType.IMMEDIATE_OR_CANCEL]: {
-//     [Side.BUY]: HtxOrderType.BUY_IOC,
-//     [Side.SELL]: HtxOrderType.SELL_IOC,
+//     [Side.BUY]: CexIoOrderType.BUY_IOC,
+//     [Side.SELL]: CexIoOrderType.SELL_IOC,
 //   },
 // };
